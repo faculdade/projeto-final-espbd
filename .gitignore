@@ -1,4 +1,3 @@
 .venv
 .vscode
-src/output/*.txt
 __pycache__

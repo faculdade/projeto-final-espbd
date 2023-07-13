@@ -1,4 +1,3 @@
-# OK
 import os
 import sqlite3
 import pandas as pd
@@ -14,7 +13,7 @@ from sklearn.model_selection import train_test_split
 # ╚═╝  ╚═╝╚══════╝╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝
 
 # Definir o ID do produto desejado
-ID_PRODUTO_UNICO = 242
+ID_PRODUTO_UNICO = None
 
 # Definir a data para previsão
 DATA_PARA_PREVISAO = '2023-06-15'

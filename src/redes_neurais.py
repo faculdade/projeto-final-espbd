@@ -1,71 +1,100 @@
-# ERRO
-
 import os
 import sqlite3
+import warnings
 import pandas as pd
-import numpy as np
 
-from sklearn.preprocessing import MinMaxScaler
 from sklearn.neural_network import MLPRegressor
-from datetime import datetime
+from sklearn.exceptions import ConvergenceWarning
+
+warnings.filterwarnings("ignore", category=ConvergenceWarning)
+
+#  █████╗ ██╗  ████████╗███████╗██████╗  █████╗ ██████╗
+# ██╔══██╗██║  ╚══██╔══╝██╔════╝██╔══██╗██╔══██╗██╔══██╗
+# ███████║██║     ██║   █████╗  ██████╔╝███████║██████╔╝
+# ██╔══██║██║     ██║   ██╔══╝  ██╔══██╗██╔══██║██╔══██╗
+# ██║  ██║███████╗██║   ███████╗██║  ██║██║  ██║██║  ██║
+# ╚═╝  ╚═╝╚══════╝╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝
+
+# Define the ID of the desired product
+ID_PRODUTO_UNICO = None
+
+# Define the date for prediction
+DATA_PARA_PREVISAO = '2023-06-15'
+
+# Data initial to feed the model
+DATA_INICIAL_PARA_PREVISAO = '1000-01-01'
+
+# Data final to feed the model
+DATA_FINAL_PARA_PREVISAO = '2023-05-30'
+
+# ███╗   ██╗ █████╗  ██████╗      █████╗ ███╗   ██╗████████╗███████╗██████╗  █████╗ ██████╗
+# ████╗  ██║██╔══██╗██╔═══██╗    ██╔══██╗████╗  ██║╚══██╔══╝██╔════╝██╔══██╗██╔══██╗██╔══██╗
+# ██╔██╗ ██║███████║██║   ██║    ███████║██╔██╗ ██║   ██║   █████╗  ██████╔╝███████║██████╔╝
+# ██║╚██╗██║██╔══██║██║   ██║    ██╔══██║██║╚██╗██║   ██║   ██╔══╝  ██╔══██╗██╔══██║██╔══██╗
+# ██║ ╚████║██║  ██║╚██████╔╝    ██║  ██║██║ ╚████║   ██║   ███████╗██║  ██║██║  ██║██║  ██║
+# ╚═╝  ╚═══╝╚═╝  ╚═╝ ╚═════╝     ╚═╝  ╚═╝╚═╝  ╚═══╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-db_path = os.path.join(BASE_DIR, 'modelo_small.sqlite3')
+db_path = os.path.join(BASE_DIR, '../modelo_small.sqlite3')
 file_path = os.path.join(BASE_DIR, 'output/redes_neurais.txt')
 
 conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
 
-# Carregar os dados do histórico de vendas
-sql = 'SELECT * FROM vendas_normalizadas where produto_id = 242'
+if ID_PRODUTO_UNICO is None:
+    sql = f'SELECT * FROM vendas_normalizadas WHERE data_venda BETWEEN \'{DATA_INICIAL_PARA_PREVISAO}\' and \'{DATA_FINAL_PARA_PREVISAO}\''
+else:
+    sql = f'SELECT * FROM vendas_normalizadas where produto_id = {ID_PRODUTO_UNICO} AND data_venda BETWEEN \'{DATA_INICIAL_PARA_PREVISAO}\' and \'{DATA_FINAL_PARA_PREVISAO}\''
+
 df = pd.read_sql_query(sql, conn)
 
-# Converter a coluna 'data_venda' para o tipo datetime
-df['data_venda'] = pd.to_datetime(df['data_venda'])
+# Create a dictionary to store the predictions
+previsoes_por_produto = {}
 
-# Ordenar o DataFrame por data de venda
-df = df.sort_values('data_venda')
+# Get the list of unique products
+produtos_unicos = df['produto_id'].unique()
 
-# Calcular o número de dias desde a primeira venda
-df['dias_desde_primeira_venda'] = (
-    df['data_venda'] - df['data_venda'].min()).dt.days
+# Iterate over each product
+for produto_id in produtos_unicos:
+    # Filter the data for the desired product and create an explicit copy
+    df_produto = df[df['produto_id'] == produto_id].copy()
 
-# Criar o DataFrame com as colunas relevantes (dias desde a primeira venda e quantidade vendida)
-df_produto = df[['dias_desde_primeira_venda', 'qtde_vendida']].copy()
+    # Convert the date column to datetime type
+    df_produto['data_venda'] = pd.to_datetime(df_produto['data_venda'])
 
-# Normalizar os dados
-scaler = MinMaxScaler(feature_range=(0, 1))
-df_produto[['dias_desde_primeira_venda', 'qtde_vendida']] = scaler.fit_transform(
-    df_produto[['dias_desde_primeira_venda', 'qtde_vendida']])
+    # Extract date features
+    df_produto['ano'] = df_produto['data_venda'].dt.year
+    df_produto['mes'] = df_produto['data_venda'].dt.month
+    df_produto['dia'] = df_produto['data_venda'].dt.day
 
-# Separar as features (dias desde a primeira venda) e o target (quantidade vendida)
-X = df_produto['dias_desde_primeira_venda'].values.reshape(-1, 1)
-y = df_produto['qtde_vendida'].values.ravel()
+    # Separate the features (ano, mes, dia) and the target (qtde_vendida)
+    X = df_produto[['ano', 'mes', 'dia']].values
+    y = df_produto['qtde_vendida'].values
 
-# Criar e treinar o modelo de rede neural
-model = MLPRegressor(hidden_layer_sizes=(10, 10), random_state=42)
-model.fit(X, y)
+    # Create and train the neural network model
+    model = MLPRegressor(hidden_layer_sizes=(
+        10, 10), max_iter=1000, random_state=42)
+    model.fit(X, y)
 
-# Obter o número de dias desde a primeira venda para a nova data
-nova_data = '2023-05-30'  # Definir a nova data desejada
-nova_data = datetime.strptime(nova_data, '%Y-%m-%d')
-dias_desde_primeira_venda_nova_data = (nova_data - df['data_venda'].min()).days
+    # Make a prediction for a new date
+    nova_data = pd.to_datetime(DATA_PARA_PREVISAO)
+    nova_ano = nova_data.year
+    nova_mes = nova_data.month
+    nova_dia = nova_data.day
+    nova_previsao = model.predict([[nova_ano, nova_mes, nova_dia]])
 
-# Normalizar os dados da nova data
-nova_data_normalizada = np.array([[dias_desde_primeira_venda_nova_data]])
-nova_data_normalizada = scaler.transform(nova_data_normalizada)
+    # Store the prediction in the dictionary
+    previsoes_por_produto[produto_id] = nova_previsao
 
-# Fazer a previsão para a nova data
-quantidade_vendas_prevista = model.predict(nova_data_normalizada)
+# Print the predictions
+if ID_PRODUTO_UNICO is None:
+    with open(file_path, 'w') as file:
+        file.write(f'produto_id;redes_neurais\n')
 
-# Desnormalizar a nova data
-nova_data_desnormalizada = np.array([[dias_desde_primeira_venda_nova_data]])
-nova_data_desnormalizada = scaler.inverse_transform(nova_data_desnormalizada)
+        for produto_id, previsao in previsoes_por_produto.items():
+            file.write(f'{produto_id};{previsao[0]}\n')
 
-# Desnormalizar a quantidade de vendas prevista
-quantidade_vendas_prevista_desnormalizada = scaler.inverse_transform(
-    quantidade_vendas_prevista.reshape(-1, 1))
-
-# Imprimir a previsão de quantidade de vendas para a nova data
-print(
-    f'Previsão de quantidade de vendas para {nova_data}: {quantidade_vendas_prevista_desnormalizada[0][0]:.2f}')
+    print('Generation of the file completed successfully.')
+else:
+    for produto_id, previsao in previsoes_por_produto.items():
+        print(f'Product: {produto_id} -- Prediction: {previsao[0]}')

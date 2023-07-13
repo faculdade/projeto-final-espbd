@@ -1,8 +1,6 @@
 import sqlite3
 import os
 
-from datetime import datetime
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 db_path = os.path.join(BASE_DIR, '../modelo_small.sqlite3')
 file_path = os.path.join(BASE_DIR, 'output/eorbis.txt')
