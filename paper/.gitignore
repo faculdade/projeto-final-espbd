@@ -1,0 +1,11 @@
+*.bbl
+*.pdf
+*.gz
+*.log
+*.aux
+*.toc
+*.dvi
+*.tmp
+*.xref
+*.4tc
+*.blg
